@@ -369,24 +369,30 @@ export class MetaDeckState implements AsyncMountable
 		this.loadingData.loading = true;
 		this.loadingData.total = Object.values(this.modules).filter((mod) => mod.isValid).length;
 		this.loadingData.processed = 0;
-		for (let module of Object.values(this.modules).filter((mod) => mod.isValid))
+		try
 		{
-			this.loadingData.module = module.identifier;
-			this.loadingData.currentModule.total = this.apps.length;
-			this.loadingData.currentModule.processed = 0;
-			await module.refresh();
-			this.loadingData.currentModule.game = t("initializing");
-			this.loadingData.currentModule.description = "";
-			this.loadingData.currentModule.total = 0;
-			this.loadingData.currentModule.processed = 0;
-			this.loadingData.processed++;
+			for (let module of Object.values(this.modules).filter((mod) => mod.isValid))
+			{
+				this.loadingData.module = module.identifier;
+				this.loadingData.currentModule.total = this.apps.length;
+				this.loadingData.currentModule.processed = 0;
+				await module.refresh();
+				this.loadingData.currentModule.game = t("initializing");
+				this.loadingData.currentModule.description = "";
+				this.loadingData.currentModule.total = 0;
+				this.loadingData.currentModule.processed = 0;
+				this.loadingData.processed++;
+				this.notifyUpdate();
+			}
+			await this.settings.writeSettings();
+		}
+		finally
+		{
+			this.loadingData.loading = false;
+			this.loadingData.total = 0;
+			this.loadingData.processed = 0;
 			this.notifyUpdate();
 		}
-		this.loadingData.loading = false;
-		this.loadingData.total = 0;
-		this.loadingData.processed = 0;
-		this.notifyUpdate();
-		await this.settings.writeSettings();
 	}
 
 	async clear(): Promise<void>

@@ -11,25 +11,35 @@ import decky
 class Plugin:
 
 	async def read_config(self) -> dict:
-		with open(os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "settings.json"), "r") as f:
-			try:
+		try:
+			with open(os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "settings.json"), "r") as f:
 				return json.load(f)
-			except:
-				return {}
+		except FileNotFoundError:
+			return {}
+		except json.JSONDecodeError as error:
+			decky.logger.warning(f"Could not read MetaDeck settings: {error}")
+			return {}
 
 	async def write_config(self, data: dict) -> None:
-		with open(os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "settings.json"), "w") as f:
+		path = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "settings.json")
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		with open(path, "w") as f:
 			json.dump(data, f, indent="\t")
 
 	async def read_cache(self) -> dict:
-		with open(os.path.join(decky.DECKY_PLUGIN_RUNTIME_DIR, "cache.json"), "r") as f:
-			try:
+		try:
+			with open(os.path.join(decky.DECKY_PLUGIN_RUNTIME_DIR, "cache.json"), "r") as f:
 				return json.load(f)
-			except:
-				return {}
+		except FileNotFoundError:
+			return {}
+		except json.JSONDecodeError as error:
+			decky.logger.warning(f"Could not read MetaDeck cache: {error}")
+			return {}
 
 	async def write_cache(self, data: dict) -> None:
-		with open(os.path.join(decky.DECKY_PLUGIN_RUNTIME_DIR, "cache.json"), "w") as f:
+		path = os.path.join(decky.DECKY_PLUGIN_RUNTIME_DIR, "cache.json")
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		with open(path, "w") as f:
 			json.dump(data, f, indent="\t")
 
 	async def read_file(self, path: str) -> str:
