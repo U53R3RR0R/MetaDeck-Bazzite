@@ -9,8 +9,11 @@ import del from 'rollup-plugin-delete';
 import importAssets from 'rollup-plugin-import-assets';
 import externalGlobals from 'rollup-plugin-external-globals';
 import svgr from '@svgr/rollup'
-import manifest from "./plugin.json" assert { type: 'json' }
-import pkg from "./package.json" assert { type: 'json' }
+import {createRequire} from "node:module";
+
+const require = createRequire(import.meta.url);
+const manifest = require("./plugin.json");
+const pkg = require("./package.json");
 
 export default defineConfig({
 	input: './src/ts/index.tsx',

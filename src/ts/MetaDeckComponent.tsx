@@ -28,7 +28,7 @@ export const MetaDeckComponent: FC = () =>
 						   label={loadingData.currentModule.module.title}
 						   layout="inline"
 						   bottomSeparator="none"
-						   sOperationText={loadingData.currentModule?.error ? <div style={{color: "red"}}>{`Error loading ${loadingData?.currentModule?.module?.title} for ${loadingData.currentModule?.game}: ${loadingData.currentModule?.error.name}`}</div> : loadingData.currentModule?.game}
+						   sOperationText={loadingData.currentModule?.error ? <div style={{color: "red"}}>{`Error loading ${loadingData.currentModule?.module?.title} for ${loadingData.currentModule?.game}: ${loadingData.currentModule?.error.name}`}</div> : loadingData.currentModule?.game}
 						   description={loadingData.currentModule?.error ? <div style={{color: "red"}}>{loadingData.currentModule?.error.stack}</div> : loadingData.currentModule?.description}
 						   nProgress={loadingData.currentModule?.percentage}
 						   sTimeRemaining={<div style={{
@@ -36,6 +36,9 @@ export const MetaDeckComponent: FC = () =>
 						   }}>{`${loadingData.currentModule?.processed}/${loadingData.currentModule?.total}`}</div>}
 					/>
 				</PanelSectionRow>
+				{!loadingData.loading && <PanelSectionRow>
+					<ButtonItem onClick={() => void refresh()}><FaSync/> {t("refresh")}</ButtonItem>
+				</PanelSectionRow>}
 			</PanelSection> :
 			<PanelSection>
 				<PanelSectionRow>

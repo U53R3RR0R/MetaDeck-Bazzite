@@ -502,58 +502,93 @@ export class MetadataModule extends Module<
 		// 	}
 		// })
 
-		mounts.addPatchMount({
-			patch(): Patch
+		let appGameInfoPatch: Patch | undefined;
+		let childRenderPatches: Patch[] = [];
+		let patchedComponentTypes = new WeakSet<Function>();
+
+		mounts.addMount({
+			mount(): void
 			{
 				const AppGameInfoContainer = findModuleExport((e) => e?.toString()?.includes("().AppGameInfoContainer"));
-				module.logger.debug("AppGameInfoContainer", AppGameInfoContainer);
+				if (!AppGameInfoContainer?.prototype || typeof AppGameInfoContainer.prototype.render !== "function")
+				{
+					module.logger.warn("Steam's AppGameInfoContainer was not found; metadata feature badges are unavailable.");
+					return;
+				}
 
+				patchedComponentTypes = new WeakSet<Function>();
 
-				return afterPatch(AppGameInfoContainer.prototype, "render", (_, ret) => {
-					if (!module.isValid)
+				appGameInfoPatch = afterPatch(AppGameInfoContainer.prototype, "render", (_, ret) => {
+					if (!module.isValid || !ret)
 						return ret;
 
 					const component = findInReactTree(ret, (e) => e?.props?.onImageLoad);
-
-					beforePatch(component.type.prototype, "render", function (_) {
-						//@ts-ignore
-						this.m_bDelayedLoad = false
-					})
-
-					afterPatch(component.type.prototype, "render", function (_, ret) {
-						if (!module.isValid || !ret)
-							return ret;
-
-						const featuresList = findInReactTree(ret, (e) => Array.isArray(e?.props?.children) && e?.props?.children?.length > 10);
-						const overview: SteamAppOverview = featuresList?.props?.children?.[0]?.props?.overview
-
-						for (const category of Object.values(CustomStoreCategory))
-						{
-							if (typeof category != "string" && !(featuresList?.props?.children as Array<ReactElement>)?.some(value => value?.props?.feature == category))
-							{
-								(featuresList?.props?.children as Array<ReactElement>)?.push(<CustomFeature
-									   feature={category} minimode={false} overview={overview}
-									   suppresstooltip={true}/>);
-							}
-						}
-
-
+					const componentType = component?.type;
+					if (typeof componentType !== "function" || !componentType.prototype || typeof componentType.prototype.render !== "function")
 						return ret;
-					});
+
+					if (!patchedComponentTypes.has(componentType))
+					{
+						patchedComponentTypes.add(componentType);
+						childRenderPatches.push(beforePatch(componentType.prototype, "render", function (_) {
+							//@ts-ignore
+							this.m_bDelayedLoad = false
+						}));
+
+						childRenderPatches.push(afterPatch(componentType.prototype, "render", function (_, childRet) {
+							if (!module.isValid || !childRet)
+								return childRet;
+
+							const featuresList = findInReactTree(childRet, (e) => Array.isArray(e?.props?.children) && e?.props?.children?.length > 10);
+							const children = featuresList?.props?.children as Array<ReactElement> | undefined;
+							const overview: SteamAppOverview | undefined = children?.[0]?.props?.overview;
+							if (!children || !overview)
+								return childRet;
+
+							for (const category of Object.values(CustomStoreCategory))
+							{
+								if (typeof category != "string" && !children.some(value => value?.props?.feature == category))
+								{
+									children.push(<CustomFeature
+										   feature={category} minimode={false} overview={overview}
+										   suppresstooltip={true}/>);
+								}
+							}
+
+							return childRet;
+						}));
+					}
+
 					return ret;
 				});
+
+			},
+			dismount(): void
+			{
+				for (const patch of childRenderPatches)
+					patch.unpatch();
+				childRenderPatches = [];
+				appGameInfoPatch?.unpatch();
+				appGameInfoPatch = undefined;
 			}
 		});
 
 
 		mounts.addMount(routePatch("/library/app/:appid", (tree: any) => {
 			const routeProps = findInReactTree(tree, (x: any) => x?.renderFunc);
+			if (!routeProps || typeof routeProps.renderFunc !== "function")
+			{
+				module.logger.warn("Steam's app details route was not found; metadata could not be applied to this page.");
+				return tree;
+			}
 
 			afterPatch(routeProps, "renderFunc", (_, ret) => {
 				if (!module.enabled)
 					return ret;
-				const overview: SteamAppOverview = ret.props.children.props.overview;
-				const details: SteamAppDetails = ret.props.children.props.details;
+				const overview: SteamAppOverview | undefined = ret?.props?.children?.props?.overview;
+				const details: SteamAppDetails | undefined = ret?.props?.children?.props?.details;
+				if (!overview || !details)
+					return ret;
 
 				if (overview.app_type == 1073741824)
 				{
@@ -568,6 +603,11 @@ export class MetadataModule extends Module<
 		}))
 
 		mounts.addMount(routePatch("/library", (props: { path?: string, children?: ReactNode }) => {
+			if (!props.children || typeof props.children !== "object" || !("type" in props.children))
+			{
+				module.logger.warn("Steam's library route shape changed; metadata was not applied to the library list.");
+				return props;
+			}
 
 			afterPatch(props.children, "type", (_, ret) => {
 				if (!module.enabled)
